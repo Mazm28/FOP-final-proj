@@ -55,14 +55,191 @@ void branch_(int tedad, const char *voroodi[]);
 void checkout_(int tedad, const char *voroodi[]);
 void clear_cwd();
 void checkout_with_ID(char *commit_ID);
+int does_folder_exist(const char *folder_path);
+void status_all();
+int check_uncommited_change();
 
+int check_uncommited_change()
+{
+    struct dirent *entry;
+    DIR *dir = opendir(".");
+
+    char X, Y;
+    char *current_dir = _getcwd(NULL, MAX_PATH);
+    char branch_name[80], branch_name_2[80], garbage[100], index[5];
+    reach_tig();
+    FILE *commit_ptr = fopen("commit history.txt", "r");
+    FILE *branch_ptr = fopen("branch.txt", "r");
+    fgets(branch_name, sizeof(branch_name), branch_ptr);
+    while(fgets(garbage, sizeof(garbage), commit_ptr) != NULL)
+    {
+        fgets(index, sizeof(index), commit_ptr);
+        fgets(garbage, sizeof(garbage), commit_ptr);
+        fgets(garbage, sizeof(garbage), commit_ptr);
+        fgets(branch_name_2, sizeof(branch_name_2), commit_ptr);
+        fgets(garbage, sizeof(garbage), commit_ptr);
+        fgets(garbage, sizeof(garbage), commit_ptr);
+        branch_name_2[strlen(branch_name_2) - 1] = '\0';
+        index[strlen(index) - 1] = '\0';
+        if(!strcmp(branch_name, branch_name_2))
+        {
+            break;
+        }
+    }
+    fclose(commit_ptr);
+    fclose(branch_ptr);
+    while((entry = readdir(dir)) != NULL)
+    {
+        if(!(entry -> d_type == DT_DIR))
+        {
+            SetCurrentDirectory(current_dir);
+            FILE *main_file = fopen(entry -> d_name, "r");
+            reach_tig();
+            char full_address[MAX_PATH], full_address_copy[MAX_PATH];
+            sprintf(full_address, "%s\\%s", current_dir, entry -> d_name);
+            strcpy(full_address_copy, full_address);
+            SetCurrentDirectory("commits");
+            char dir_name[260];
+            dir_name[0] = '\0';
+            char *token = strtok(full_address_copy, "\\:.");
+            while(token != NULL)
+            {
+                strcat(dir_name, token);
+                token = strtok(NULL, "\\:.");
+            }
+            SetCurrentDirectory(index);
+            struct dirent *en;
+            DIR *d = opendir(".");
+            int ex = 0;
+            while((en = readdir(d)) != NULL)
+            {
+                if(!strcmp(en -> d_name, dir_name))
+                {
+                    ex = 1;
+                    break;
+                }
+            }
+            closedir(d);
+            if(!ex)
+            {
+                return 1;
+                goto lable1;
+            }
+            SetCurrentDirectory(dir_name);
+            FILE *commit_file = fopen(entry -> d_name, "r");
+            int same = 1;
+            char line1[200], line2[200];
+            while(fgets(line1, sizeof(line1), commit_file) != NULL)
+            {
+                if(fgets(line2, sizeof(line2), main_file) == NULL)
+                {
+                    same = 0;
+                    break;
+                }
+                if(strcmp(line1, line2))
+                {
+                    same = 0;
+                    break;
+                }
+            }
+            if(fgets(line2, sizeof(line2), main_file) != NULL)
+            {
+                same = 0;
+            }
+            fclose(main_file);
+            fclose(commit_file);
+            if(same)
+            {
+                continue;
+            }
+            else
+            {
+                Y = 'M';
+                return 1;
+            }
+            SetCurrentDirectory("..");
+            lable1:
+            SetCurrentDirectory("..");
+            SetCurrentDirectory("..");
+            SetCurrentDirectory("staging");
+            if(GetFileAttributes(dir_name) == INVALID_FILE_ATTRIBUTES)
+            {
+                X = '-';
+            }
+            else
+            {
+                X = '+';
+            }
+            printf("%s %c%c\n", entry -> d_name, X, Y);
+        }
+        else if((entry -> d_type == DT_DIR) && strcmp(entry -> d_name, "..") && strcmp(entry -> d_name, ".") && strcmp(entry -> d_name, "tig"));
+        {
+            SetCurrentDirectory(entry -> d_name);
+            status_();
+            SetCurrentDirectory("..");
+        }
+    }
+    closedir(dir);
+    SetCurrentDirectory("..");
+    SetCurrentDirectory("commits");
+    SetCurrentDirectory(index);
+    char *temp_address = _getcwd(NULL, MAX_PATH);
+    dir = opendir(".");
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if((entry -> d_type == DT_DIR) && strcmp(entry -> d_name, ".") && strcmp(entry -> d_name, ".."))
+        {
+            SetCurrentDirectory(entry -> d_name);
+            FILE *dt = fopen("datas.txt", "r");
+            char address[100], garbage[100], file_name[100], address_cp[MAX_PATH];
+            fscanf(dt, "%s\n", address);
+            fgets(garbage, sizeof(garbage), dt);
+            fscanf(dt, "%s\n", file_name);
+            fclose(dt);
+            if(GetFileAttributes(address) == INVALID_FILE_ATTRIBUTES)
+            {
+                return 1;
+                strcpy(address_cp, address);
+                char *dir_name;
+                dir_name[0] = '\0';
+                char *token = strtok(address_cp, "\\:.");
+                while(token != NULL)
+                {
+                    strcat(dir_name, token);
+                    token = strtok(NULL, "\\:.");
+                }
+                SetCurrentDirectory("..\\..\\..\\staging");
+                if(GetFileAttributes(dir_name) != INVALID_FILE_ATTRIBUTES)
+                {
+                    printf("%s +D", file_name);
+                }
+                else
+                {
+                    printf("%s -D", file_name);
+                }
+            }
+            fclose(dt);
+            SetCurrentDirectory(temp_address);
+        }
+    }
+    closedir(dir);
+}
+
+int does_folder_exist(const char *folder_path){
+    DIR *dir = opendir(folder_path);
+    if (dir) {
+        closedir(dir);
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 void checkout_with_ID(char *commit_ID)
 {
     SetCurrentDirectory("..");
-    printf("%s\n", _getcwd(NULL, MAX_PATH));
     clear_cwd();
-    reach_tig();
+    SetCurrentDirectory("tig");
     FILE *ptr = fopen("cc_ID.txt", "w");
     fprintf(ptr, "%s", commit_ID);
     fclose(ptr);
@@ -81,13 +258,26 @@ void checkout_with_ID(char *commit_ID)
             fscanf(ptr, "%s\n", full_address);
             fgets(garbage, sizeof(garbage), ptr);
             fscanf(ptr, "%s", file_name);
-            sprintf(command, "mkdir \"%s\"", dirname(full_address));
-            system(command);
-            sprintf(command, "copy \"%s\\%s\" \"%s\"", _getcwd(NULL, MAX_PATH), file_name, dirname(full_address));
+            fclose(ptr);
+            dirname(full_address);
+            if(!does_folder_exist(full_address))
+            {
+                sprintf(command, "mkdir \"%s\"", full_address);
+                system(command);
+            }
+            sprintf(command, "copy \"%s\\%s\" \"%s\"", _getcwd(NULL, MAX_PATH), file_name, full_address);
             system(command);
             SetCurrentDirectory("..");
         }
     }
+    system("xcopy branch.txt ..\\..");
+    system("xcopy cc_ID.txt ..\\..");
+    system("xcopy \"commit massage.txt\" ..\\..");
+    system("xcopy configmail.txt ..\\..");
+    system("xcopy configname.txt ..\\..");
+    system("xcopy date.txt ..\\..");
+    system("xcopy lc_ID.txt ..\\..");
+    system("xcopy \"staging area.txt\" ..\\..");
 }
 
 void clear_cwd()
@@ -500,7 +690,7 @@ void add_(int tedad,const char * voroodi[])
                 if(is_directory_or_file(voroodi[i]))
                 {
                     SetCurrentDirectory(voroodi[i]);
-                    add_directory_to_staging_area(1, 1);
+                    add_directory_to_staging_area(100, 1);
                     SetCurrentDirectory("..");
                 }
 
@@ -526,7 +716,7 @@ void add_(int tedad,const char * voroodi[])
                 if(is_directory_or_file(voroodi[i]))
                 {
                     SetCurrentDirectory(voroodi[i]);
-                    add_directory_to_staging_area(1, 1);
+                    add_directory_to_staging_area(100, 1);
                     SetCurrentDirectory("..");
                 }
 
@@ -964,7 +1154,7 @@ void commit_(int tedad, const char *voroodi[])
             ptr = fopen("commit massage.txt", "w");
             fprintf(ptr, "%s\n", voroodi[3]);
             fclose(ptr);
-            ptr = fopen("date", "w");
+            ptr = fopen("date.txt", "w");
             fprintf(ptr, "%s", date);
             fclose(ptr);
             SetCurrentDirectory("..");
@@ -1424,6 +1614,12 @@ void status_()
             }
             printf("%s %c%c\n", entry -> d_name, X, Y);
         }
+        else if((entry -> d_type == DT_DIR) && strcmp(entry -> d_name, "..") && strcmp(entry -> d_name, ".") && strcmp(entry -> d_name, "tig"));
+        {
+            SetCurrentDirectory(entry -> d_name);
+            status_();
+            SetCurrentDirectory("..");
+        }
     }
     closedir(dir);
     SetCurrentDirectory("..");
@@ -1468,7 +1664,6 @@ void status_()
         }
     }
     closedir(dir);
-    
 }
 
 void branch_(int tedad, const char *voroodi[])
@@ -1531,6 +1726,14 @@ void checkout_(int tedad, const char *voroodi[])
         exit(EXIT_FAILURE);
     }
     reach_tig();
+    SetCurrentDirectory("..");
+    if(check_uncommited_change())
+    {
+        printf("please first commit every changes on your project\n");
+        exit(EXIT_FAILURE);
+    }
+    SetCurrentDirectory("tig");
+
     if(!strcmp(voroodi[2], "HEAD"))
     {
         char branch_name[100];
@@ -1550,26 +1753,109 @@ void checkout_(int tedad, const char *voroodi[])
             fgets(files_commited, sizeof(files_commited), ptr_commit_history);
             fgets(commit_massage, sizeof(commit_massage), ptr_commit_history);
             branch_name_f[strlen(branch_name_f) -1] = '\0';
+            commit_ID[strlen(commit_ID) -1] = '\0';
             if(!strcmp(branch_name_f, branch_name))
             {
                 exist = 1;
                 break;
             }
         }
-        // if(!exist)
-        // {
-        //     char line[100];
-        //     sprintf(line, "branches\\%s.txt", branch_name);
-        //     FILE *ptr = fopen(line, "r");
-        //     fgets(commit_ID, sizeof(commit_ID), ptr);
-        //     fclose(ptr);
-        // }
-        printf("%s\n", commit_ID);
-        printf(1/0);
+        checkout_with_ID(commit_ID);
+    }
+
+    else if(!strcmp(voroodi[2], "-b"))
+    {
+        char branch_name[100];
+        strcpy(branch_name, voroodi[3]);
+        int exist = 0;
+        char files_commited[100], commit_massage[80];
+        char commit_ID[MAX_PATH], confn[MAX_PATH], confe[MAX_PATH], branch_name_f[MAX_PATH], date[100];
+        FILE *ptr_commit_history = fopen("commit history.txt", "r");
+        while(fgets(date, sizeof(date), ptr_commit_history) != NULL)
+        {
+            fgets(commit_ID, sizeof(commit_ID), ptr_commit_history);
+            fgets(confn, sizeof(confn), ptr_commit_history);
+            fgets(confe, sizeof(confe), ptr_commit_history);
+            fgets(branch_name_f, sizeof(branch_name_f), ptr_commit_history);
+            fgets(files_commited, sizeof(files_commited), ptr_commit_history);
+            fgets(commit_massage, sizeof(commit_massage), ptr_commit_history);
+            branch_name_f[strlen(branch_name_f) -1] = '\0';
+            commit_ID[strlen(commit_ID) -1] = '\0';
+            if(!strcmp(branch_name_f, branch_name))
+            {
+                exist = 1;
+                break;
+            }
+        }
+
+        if(!exist)
+        {
+            char line[100];
+            sprintf(line, "branches\\%s.txt", branch_name);
+            FILE *ptr = fopen(line, "r");
+            fgets(commit_ID, sizeof(commit_ID), ptr);
+            fclose(ptr);
+            commit_ID[strlen(commit_ID) - 1] = '\0';
+        }
+        checkout_with_ID(commit_ID);
+    }
+
+    else if(!strcmp(voroodi[2], "-id"))
+    {
+        char commit_ID[10];
+        strcpy(commit_ID, voroodi[3]);
+        checkout_with_ID(commit_ID);
+    }
+
+    else if(!strncmp(voroodi[2], "HEAD-", 5))
+    {
+        char t[10];
+        strcpy(t, voroodi[2]);
+        char *token = strtok(t, "-");
+        token = strtok(NULL, "-");
+        char *endptr;
+        int n = strtol(token, &endptr, 10);
+        char branch_name[100];
+        FILE *ptr_branch_name = fopen("branch.txt", "r");
+        fgets(branch_name, sizeof(branch_name), ptr_branch_name);
+        fclose(ptr_branch_name);
+        char files_commited[100], commit_massage[80];
+        char commit_ID[MAX_PATH], confn[MAX_PATH], confe[MAX_PATH], branch_name_f[MAX_PATH], date[100];
+        FILE *ptr_commit_history = fopen("commit history.txt", "r");
+        while (n)
+        {
+            while(fgets(date, sizeof(date), ptr_commit_history) != NULL)
+            {
+                fgets(commit_ID, sizeof(commit_ID), ptr_commit_history);
+                fgets(confn, sizeof(confn), ptr_commit_history);
+                fgets(confe, sizeof(confe), ptr_commit_history);
+                fgets(branch_name_f, sizeof(branch_name_f), ptr_commit_history);
+                fgets(files_commited, sizeof(files_commited), ptr_commit_history);
+                fgets(commit_massage, sizeof(commit_massage), ptr_commit_history);
+                branch_name_f[strlen(branch_name_f) -1] = '\0';
+                commit_ID[strlen(commit_ID) -1] = '\0';
+                if(!strcmp(branch_name_f, branch_name))
+                {
+                    n--;
+                    break;
+                }
+            }
+        }
         checkout_with_ID(commit_ID);
     }
 }
 
+void status_all()
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+    reach_tig();
+    SetCurrentDirectory("..");
+    status_();
+}
 
 int main(int argc,const char **argv)
 {
@@ -1604,10 +1890,10 @@ int main(int argc,const char **argv)
 
     else if(!strcmp(argv[1], status))
     {
-        if(argc > 2)
+        if(argc == 3)
         {
-            perror("status command need to only have 2 inputs\n");
-            return 1;
+            status_all();
+            return 0;
         }
         status_();
         return 0;
