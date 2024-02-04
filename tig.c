@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <libgen.h>
+#include <unistd.h>
 
 #define basement "C:\\tig base"
 #define config "config"
@@ -23,6 +24,8 @@
 #define checkout "checkout"
 #define revert "revert"
 #define tag "tag"
+#define grep "grep"
+#define diff "diff"
 
 char confname[100], confmail[100];
 
@@ -61,8 +64,350 @@ int does_folder_exist(const char *folder_path);
 void status_all();
 int check_uncommited_change();
 // void revert_(int tedad, const char *voroodi[]);
-// void tag_(int tedad, const char *voroodi[]);
+void tag_(int tedad, const char *voroodi[]);
+void tag_sort_and_print();
+int compare_strings(const void *a, const void *b);
+void show_tag(const char *tag_name);
+void grep_(int tedad, const char *voroodi[]);
+void find_and_highlight(FILE *file, const char *word, int flag);
+void diff_(int tedad, const char *voroodi[]);
+void linear_diff(char *address1, char *address2, int start1, int start2, int end1, int end2);
+void full_diff(char *address1, char *address2);
 
+void full_diff(char *address1, char *address2)
+{
+    char full_address1_cp[MAX_PATH], full_address2_cp[MAX_PATH];
+    strcpy(full_address1_cp, address1);
+    strcpy(full_address2_cp, address2);
+    char *file_name1 = basename(full_address1_cp);
+    char *file_name2 = basename(full_address2_cp);
+    FILE *ptr1 = fopen(address1, "r");
+    FILE *ptr2 = fopen(address2, "r");
+    char line1[200], line2[200];
+    int index1 = 0, index2 = 0;
+    void *a, *b;
+
+    a = fgets(line1, sizeof(line1), ptr1);
+    index1++;
+    while(1)
+    {
+        int white_space = 0;
+        for(int j = 0; j < strlen(line1); j++)
+        {
+            if(line1[j] != ' ' && line1[j] != '\n' && line1[j] != '\t')
+            {
+                white_space = 1;
+                break;
+            }
+        }
+        if(white_space)
+        {
+            break;
+        }
+        else
+        {
+            a = fgets(line1, sizeof(line1), ptr1);
+            index1++;
+        }
+    }
+
+    b = fgets(line2, sizeof(line2), ptr2);
+    index2++;
+    while(1)
+    {
+        int white_space = 0;
+        for(int j = 0; j < strlen(line2); j++)
+        {
+            if(line2[j] != ' ' && line2[j] != '\n' && line2[j] != '\t')
+            {
+                white_space = 1;
+                break;
+            }
+        }
+        if(white_space)
+        {
+            break;
+        }
+        else
+        {
+            b = fgets(line2, sizeof(line2), ptr2);
+            index2++;
+        }
+    }
+    
+    while (a != NULL || b != NULL)
+    {
+        if(strcmp(line1, line2))
+        {
+            printf("<<<<<\n\x1b[34m%s-%d\n%s\x1b[36m%s-%d\n%s\x1b[0m>>>>>", file_name1, index1, line1, file_name2, index2, line2);
+        }
+
+        a = fgets(line1, sizeof(line1), ptr1);
+        index1++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line1); j++)
+            {
+                if(line1[j] != ' ' && line1[j] != '\n' && line1[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                a = fgets(line1, sizeof(line1), ptr1);
+                index1++;
+            }
+        }
+
+        b = fgets(line2, sizeof(line2), ptr2);
+        index2++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line2); j++)
+            {
+                if(line2[j] != ' ' && line2[j] != '\n' && line2[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                b = fgets(line2, sizeof(line2), ptr2);
+                index2++;
+            }
+        }
+    }
+}
+
+void linear_diff(char *address1, char *address2, int start1, int start2, int end1, int end2)
+{
+    char full_address1_cp[MAX_PATH], full_address2_cp[MAX_PATH];
+    strcpy(full_address1_cp, address1);
+    strcpy(full_address2_cp, address2);
+    char *file_name1 = basename(full_address1_cp);
+    char *file_name2 = basename(full_address2_cp);
+    FILE *ptr1 = fopen(address1, "r");
+    FILE *ptr2 = fopen(address2, "r");
+    char line1[200], line2[200];
+    int index1 = 0, index2 = 0;
+    void *a, *b;
+    
+    for(int i = 1; i <= start1; i++)
+    {
+        a = fgets(line1, sizeof(line1), ptr1);
+        index1++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line1); j++)
+            {
+                if(line1[j] != ' ' && line1[j] != '\n' && line1[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                a = fgets(line1, sizeof(line1), ptr1);
+                index1++;
+            }
+        }
+    }
+
+    
+    
+    for(int i = 1; i <= start2; i++)
+    {
+        b = fgets(line2, sizeof(line2), ptr2);
+        index2++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line2); j++)
+            {
+                if(line2[j] != ' ' && line2[j] != '\n' && line2[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                b = fgets(line2, sizeof(line2), ptr2);
+                index2++;
+            }
+        }
+    }
+    
+    while (index1 <= end1 || index2 <= end2 || a != NULL || b != NULL)
+    {
+        if(strcmp(line1, line2))
+        {
+            printf("<<<<<\n\x1b[34m%s-%d\n%s\x1b[36m%s-%d\n%s\x1b[0m>>>>>", file_name1, index1, line1, file_name2, index2, line2);
+        }
+
+        a = fgets(line1, sizeof(line1), ptr1);
+        index1++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line1); j++)
+            {
+                if(line1[j] != ' ' && line1[j] != '\n' && line1[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                a = fgets(line1, sizeof(line1), ptr1);
+                index1++;
+            }
+        }
+
+        b = fgets(line2, sizeof(line2), ptr2);
+        index2++;
+        while(1)
+        {
+            int white_space = 0;
+            for(int j = 0; j < strlen(line2); j++)
+            {
+                if(line2[j] != ' ' && line2[j] != '\n' && line2[j] != '\t')
+                {
+                    white_space = 1;
+                    break;
+                }
+            }
+            if(white_space)
+            {
+                break;
+            }
+            else
+            {
+                b = fgets(line2, sizeof(line2), ptr2);
+                index2++;
+            }
+        }
+    }
+}
+
+void find_and_highlight(FILE *file, const char *word, int flag)
+{
+    int index = 0;
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file) != NULL)
+    {
+        index++;
+        char *position = strstr(buffer, word);
+        if (position != NULL)
+        {
+            size_t prefix_length = position - buffer;
+            size_t suffix_length = strlen(buffer) - prefix_length - strlen(word);
+            if(flag)
+            {
+                printf("line %d: ", index);
+            }
+            char prefix[100];
+            strncpy(prefix, buffer, prefix_length);
+            prefix[prefix_length] = '\0';
+            printf("%s", prefix);
+            printf("\x1b[31m");
+            printf("%s", word);
+            printf("\x1b[0m");
+            printf("%s\n", position + strlen(word));
+        }
+    }
+    return;
+}
+
+void show_tag(const char *tag_name)
+{
+    char t_name[100], t_massage[100], c_ID[10], c_name[100], date[100], c_mail[100];
+    FILE *ptr = fopen("tags.txt", "r");
+    while (fgets(t_name, sizeof(t_name), ptr))
+    {
+        fgets(t_massage, sizeof(t_massage), ptr);
+        fgets(c_ID, sizeof(c_ID), ptr);
+        fgets(c_name, sizeof(c_name), ptr);
+        fgets(c_mail, sizeof(c_mail), ptr);
+        fgets(date, sizeof(date), ptr);
+        t_name[strlen(t_name) - 1] = '\0';
+        c_name[strlen(c_name) - 1] = '\0';
+        c_mail[strlen(c_mail) - 1] = '\0';
+        if(!strcmp(t_name, tag_name))
+        {
+            printf("tag: %s\n", t_name);
+            printf("commit: %s", c_ID);
+            printf("Author: %s<%s>\n", c_name, c_mail);
+            printf("date: %s", date);
+            if(strlen(t_massage) > 1)
+            {
+                printf("message: %s", t_massage);
+            }
+            else
+            {
+                printf("there is no message for this tag\n");
+            }
+        }
+    }
+    
+}
+
+int compare_strings(const void *a, const void *b)
+{
+    return strcmp(*(const char **)a, *(const char **)b);
+}
+
+void tag_sort_and_print()
+{
+    int i = 0;
+    char *tags[100], garbage[100], line[100];
+    FILE *ptr = fopen("tags.txt", "r");
+    while (fgets(line, sizeof(line), ptr) != NULL && strcmp(line, "\n"))
+    {
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        strcpy(tags[i], line);
+        i++;
+    }
+    fclose(ptr);
+    qsort(tags, i, sizeof(tags[0]), compare_strings);
+    for(int j = 0; j < i; j++)
+    {
+        printf("%s", tags[j]);
+        // printf("^\n");
+    }
+}
 
 int check_uncommited_change()
 {
@@ -416,7 +761,7 @@ void reach_tig()
 void add_to_staging_area(const char *file_name)
 {
     char *current_dir = _getcwd(NULL, MAX_PATH);
-    char full_address[MAX_PATH];
+    char full_address[MAX_PATH], full_address_cp[MAX_PATH];
     sprintf(full_address, "%s\\%s", current_dir, file_name);
     reach_tig();
     FILE *ptr = fopen("staging area.txt", "r");
@@ -546,6 +891,9 @@ void init_()
         fclose(ptr);
 
         ptr = fopen("commit history.txt", "w");
+        fclose(ptr);
+
+        ptr = fopen("tags.txt", "w");
         fclose(ptr);
 
         if(mkdir("branches"))
@@ -1902,20 +2250,234 @@ void status_all()
     status_();
 }
 
-// void tag_(int tedad, const char *voroodi[])
-// {
-//     if(!dir_existance())
-//     {
-//         printf("please first initialize tig repo\n");
-//         exit(EXIT_FAILURE);
-//     }
-//     reach_tig();
-//
-//     if(!strcmp(voroodi[2], "-a"))
-//     {
-//
-//     }
-// }
+void tag_(int tedad, const char *voroodi[])
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+    reach_tig();
+
+    if(tedad == 2)
+    {
+        tag_sort_and_print();
+        return;
+    }
+
+    if(!strcmp(voroodi[2], "show"))
+    {
+        show_tag(voroodi[3]);
+        return;
+    }
+
+    char config_name[100], config_mail[100];
+    FILE *ptr = fopen("configname.txt", "r");
+    fgets(config_name, sizeof(config_name), ptr);
+    fclose(ptr);
+
+    ptr = fopen("configmail.txt", "r");
+    fgets(config_mail, sizeof(config_mail), ptr);
+    fclose(ptr);
+
+    char tag_name[100];
+    strcpy(tag_name, voroodi[3]);
+    char tag_massage[100] = "";
+    char commit_ID[100] = "";
+    int flag = 0;
+    char s[100];
+
+    for (int i = 4; i < tedad; i++)
+    {
+        if(!strcmp(voroodi[i], "-m"))
+        {
+            strcpy(tag_massage, voroodi[i + 1]);
+            i++;
+        }
+        else if(!strcmp(voroodi[i], "-c"))
+        {
+            strcpy(commit_ID, voroodi[ i + 1]);
+            strcpy(commit_ID, voroodi[i + 1]);
+            i++;
+        }
+        else if(!strcmp(voroodi[i], "-f"))
+        {
+            flag = 1;
+        }
+    }
+
+    if(strlen(commit_ID) == 0)
+    {
+        FILE *ptr = fopen("cc_ID.txt", "r");
+        fgets(s, sizeof(s), ptr);
+        strcpy(commit_ID, s);
+        fclose(ptr);
+    }
+
+    if(!flag)
+    {
+        char t_name[100], t_massage[100], c_ID[10], c_name[100], date[100], c_mail[100];
+        FILE *ptr = fopen("tags.txt", "r");
+        while (fgets(t_name, sizeof(t_name), ptr) != NULL)
+        {
+            fgets(t_massage, sizeof(t_massage), ptr);
+            fgets(c_ID, sizeof(c_ID), ptr);
+            fgets(c_name, sizeof(c_name), ptr);
+            fgets(c_mail, sizeof(c_mail), ptr);
+            fgets(date, sizeof(date), ptr);
+            t_name[strlen(t_name) - 1] = '\0';
+            if(!strcmp(t_name, tag_name))
+            {
+                printf("there is a tag with the given name before please use -f method to overwrite on it\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        fclose(ptr);
+        char date_[100];
+        time_t current_time;
+        time(&current_time);
+        sprintf(date_, "%s", ctime(&current_time));
+        ptr = fopen("tags.txt", "a");
+        fprintf(ptr, "%s\n%s\n%s\n%s\n%s\n%s", tag_name, tag_massage, commit_ID, config_name, config_mail, date_);
+        printf("your tag added succesfully\n");
+        return;
+    }
+
+    else
+    {
+        int exist = 0;
+        char t_name[100], t_massage[100], c_ID[10], c_name[100], date[100], c_mail[100];
+        FILE *ptr = fopen("tags.txt", "r");
+        FILE *t = fopen("temp.txt", "w");
+        while (fgets(t_name, sizeof(t_name), ptr) != NULL)
+        {
+            fgets(t_massage, sizeof(t_massage), ptr);
+            fgets(c_ID, sizeof(c_ID), ptr);
+            fgets(c_name, sizeof(c_name), ptr);
+            fgets(c_mail, sizeof(c_mail), ptr);
+            fgets(date, sizeof(date), ptr);
+            t_name[strlen(t_name) - 1] = '\0';
+            if(strcmp(t_name, tag_name))
+            {
+                fprintf(t, "%s\n%s%s%s%s%s", t_name, t_massage, c_ID, c_name, date);
+            }
+            else
+            {
+                exist = 1;
+                char date_[100];
+                time_t current_time;
+                time(&current_time);
+                sprintf(date_, "%s", ctime(&current_time));
+                fprintf(t, "%s\n%s\n%s\n%s\n%s\n%s", tag_name, tag_massage, commit_ID, config_name, config_mail, date_);
+            }
+        }
+        if(!exist)
+        {
+            char date_[100];
+            time_t current_time;
+            time(&current_time);
+            sprintf(date_, "%s", ctime(&current_time));
+            fprintf(t, "%s\n%s\n%s\n%s\n%s\n%s", tag_name, tag_massage, commit_ID, config_name, config_mail, date_);
+        }
+        fclose(ptr);
+        fclose(t);
+        remove("tags.txt");
+        rename("temp.txt", "tags.txt");
+        printf("your tag added succesfully\n");
+        return;
+    }
+}
+
+void grep_(int tedad, const char *voroodi[])
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char file_name[MAX_PATH], word[50], commit_ID[100] = "";
+    int flag = 0;
+
+    strcpy(file_name, voroodi[3]);
+    strcpy(word, voroodi[5]);
+
+    FILE *ptr;
+    for(int i = 6; i < tedad; i++)
+    {
+        if(!strcmp(voroodi[i], "-c"))
+        {
+            strcpy(commit_ID, voroodi[i + 1]);
+            i++;
+        }
+        else if(!strcmp(voroodi[i], "-n"))
+        {
+            flag = 1;
+        }
+    }
+    if(strlen(commit_ID) == 0)
+    {
+        ptr = fopen(file_name, "r");
+    }
+
+    else
+    {
+        char *full_address;
+        sprintf(full_address, "%s\\%s", _getcwd(NULL, MAX_PATH), file_name);
+        char dir_name[260];
+        dir_name[0] = '\0';
+        char *token = strtok(full_address, "\\:.");
+        while(token != NULL)
+        {
+            strcat(dir_name, token);
+            token = strtok(NULL, "\\:.");
+        }
+        reach_tig();
+        SetCurrentDirectory("commits");
+        SetCurrentDirectory(commit_ID);
+        SetCurrentDirectory(dir_name);
+        ptr = fopen(file_name, "r");
+    }
+    find_and_highlight(ptr, word, flag);
+    fclose(ptr);
+}
+
+void diff_(int tedad, const char *voroodi[])
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(!strcmp(voroodi[2], "-f"))
+    {
+        char full_address1[MAX_PATH], full_address2[MAX_PATH];
+        sprintf(full_address1, "%s\\%s", _getcwd(NULL, MAX_PATH), voroodi[3]);
+        sprintf(full_address2, "%s\\%s", _getcwd(NULL, MAX_PATH), voroodi[4]);
+        if(tedad > 5)
+        {
+            int start1, start2, end1, end2;
+            char buffer[10];
+            strcpy(buffer, voroodi[6]);
+            char *token = strtok(buffer, "-");
+            start1 = atoi(token);
+            token = strtok(NULL, "-");
+            end1 = atoi(token);
+            strcpy(buffer, voroodi[8]);
+            token = strtok(buffer, "-");
+            start2 = atoi(token);
+            token = strtok(NULL, "-");
+            end2 = atoi(token);
+            linear_diff(full_address1, full_address2, start1, start2, end1, end2);
+        }
+        else
+        {
+            full_diff(full_address1, full_address2);
+            return;
+        }
+    }
+}
 
 int main(int argc,const char **argv)
 {
@@ -2009,10 +2571,25 @@ int main(int argc,const char **argv)
 
     else if(!strcmp(argv[1], tag))
     {
-        // tag_(argc, argv);
+        tag_(argc, argv);
+        return 0;
+    }
+
+    else if(!strcmp(argv[1], grep))
+    {
+        grep_(argc, argv);
+        return 0;
+    }
+
+    else if(!strcmp(argv[1], diff))
+    {
+        diff_(argc, argv);
         return 0;
     }
 
     printf("invalid command\n");
     return 1;
 }
+
+
+//i have to return and edit add_ a litle bit
