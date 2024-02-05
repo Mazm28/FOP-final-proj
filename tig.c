@@ -26,6 +26,8 @@
 #define tag "tag"
 #define grep "grep"
 #define diff "diff"
+#define precommit "pre-commit"
+#define merge "merge"
 
 char confname[100], confmail[100];
 
@@ -73,6 +75,254 @@ void find_and_highlight(FILE *file, const char *word, int flag);
 void diff_(int tedad, const char *voroodi[]);
 void linear_diff(char *address1, char *address2, int start1, int start2, int end1, int end2);
 void full_diff(char *address1, char *address2);
+void precommit_(int tedad, const char *voroodi[]);
+void pre_commit_given_order(const char *order);
+
+int check_balance(const char *file_name) {
+    FILE *file = fopen(file_name, "r");
+
+    if (file == NULL) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    int ch;
+    int parentheses = 0, curly_brackets = 0, square_brackets = 0;
+
+    while ((ch = fgetc(file)) != EOF) {
+        switch (ch) {
+            case '(':
+                parentheses++;
+                break;
+            case ')':
+                parentheses--;
+                break;
+            case '{':
+                curly_brackets++;
+                break;
+            case '}':
+                curly_brackets--;
+                break;
+            case '[':
+                square_brackets++;
+                break;
+            case ']':
+                square_brackets--;
+                break;
+        }
+    }
+
+    fclose(file);
+
+    return (parentheses == 0) && (curly_brackets == 0) && (square_brackets == 0);
+}
+
+int has_trailing_whitespace(const char *file_name) {
+    FILE *file = fopen(file_name, "r");
+
+    if (file == NULL) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    int ch;
+    int last_char = EOF;
+    while ((ch = fgetc(file)) != EOF) {
+        if (!isspace(ch)) {
+            last_char = ch;
+        }
+    }
+
+    fclose(file);
+
+    return !isspace(last_char);
+}
+
+int file_size_check(const char *filename) {
+    FILE *file = fopen(filename, "rb");
+
+    if (file == NULL) {
+        fprintf(stderr, "Error: Unable to open the file\n");
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fclose(file);
+
+    return size > 5 * 1024 * 1024;
+}
+
+int check_file_character_count(const char *filename) {
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Error: Unable to open the file\n");
+        return -1;
+    }
+
+    int character_count = 0;
+    int ch;
+
+    while ((ch = fgetc(file)) != EOF) {
+        character_count++;
+    }
+    fclose(file);
+
+    return character_count > 20000;
+}
+
+int check_file_duration(char *filename, int thresholdMinutes) {
+    char command[512];
+    snprintf(command, sizeof(command), "ffmpeg -i \"%s\" 2>&1 | grep Duration", filename);
+
+    FILE *pipe = popen(command, "r");
+    if (pipe == NULL) {
+        // perror("Error opening pipe");
+        return -1;
+    }
+
+    char durationLine[256];
+    if (fgets(durationLine, sizeof(durationLine), pipe) == NULL) {
+        // perror("Error reading from pipe");
+        pclose(pipe);
+        return -1;
+    }
+
+    pclose(pipe);
+
+    char *durationStart = strstr(durationLine, "Duration: ");
+    if (durationStart == NULL) {
+        fprintf(stderr, "Error: Duration not found in the output.\n");
+        return -1;
+    }
+
+    int hours, minutes, seconds;
+    if (sscanf(durationStart, "Duration: %d:%d:%d", &hours, &minutes, &seconds) != 3) {
+        fprintf(stderr, "Error: Failed to parse duration.\n");
+        return -1;
+    }
+
+    int totalMinutes = hours * 60 + minutes;
+
+    return totalMinutes > thresholdMinutes ? 1 : 0;
+}
+
+void pre_commit_given_order(const char *order)
+{
+    FILE *ptr = fopen("datas.txt", "r");
+    char garbage[100], file_name[50];
+    fscanf(ptr, "%s\n", garbage);
+    fgets(garbage, sizeof(garbage), ptr);
+    fgets(file_name, sizeof(file_name), ptr);
+    if(!strcmp(order, "time-limit"))
+    {
+        int check = check_file_duration(file_name, 10);
+        if(check == 1)
+        {
+            printf("\x1b[32mtime-limit..........passed\x1b[0m");
+            return;
+        }
+        else if(check == 0)
+        {
+            printf("\x1b[31mtime-limit..........failed\x1b[0m");
+            return;
+        }
+        else if(check == -1)
+        {
+            printf("\x1b[34mtime-limit..........skipped\x1b[0m");
+            return;
+        }
+    }
+
+    else if(!strcmp(order, "character-limit"))
+    {
+        if(strcmp(strstr(file_name, ".txt"), ".txt") && strcmp(strstr(file_name, ".c"), ".c") && strcmp(strstr(file_name, ".cpp"), ".cpp"))
+        {
+            printf("\x1b[34mcharacter-limit..........skipped\x1b[0m");
+            return;
+        }
+        int check = check_file_character_count(file_name);
+        if(check == 1)
+        {
+            printf("\x1b[32mcharacter-limit..........passed\x1b[0m");
+            return;
+        }
+        else if(check == 0)
+        {
+            printf("\x1b[31mcharacter-limit..........failed\x1b[0m");
+            return;
+        }
+    }
+
+    else if(!strcmp(order, "file-size-check"))
+    {
+        if(file_size_check(file_name))
+        {
+            printf("\x1b[32mfile-size-check..........passed\x1b[0m");
+            return;
+        }
+        else
+        {
+            printf("\x1b[31mfile-size-check..........failed\x1b[0m");
+            return;
+        }
+    }
+
+    else if(!strcmp(order, "eof-blank-space"))
+    {
+        if(strcmp(strstr(file_name, ".txt"), ".txt") && strcmp(strstr(file_name, ".c"), ".c") && strcmp(strstr(file_name, ".cpp"), ".cpp"))
+        {
+            printf("\x1b[34meof-blank-space..........skipped\x1b[0m");
+            return;
+        }
+        int check = has_trailing_whitespace(file_name);
+        if(check == 1)
+        {
+            printf("\x1b[32meof-blank-space..........passed\x1b[0m");
+            return;
+        }
+        else if(check == 0)
+        {
+            printf("\x1b[31meof-blank-space..........failed\x1b[0m");
+            return;
+        }
+    }
+
+    else if(!strcmp(order, "balance-braces"))
+    {
+        if(strcmp(strstr(file_name, ".txt"), ".txt") && strcmp(strstr(file_name, ".c"), ".c") && strcmp(strstr(file_name, ".cpp"), ".cpp"))
+        {
+            printf("\x1b[34mbalance-braces..........skipped\x1b[0m");
+            return;
+        }
+        int check = has_trailing_whitespace(file_name);
+        if(check == 1)
+        {
+            printf("\x1b[32mbalance-braces..........passed\x1b[0m");
+            return;
+        }
+        else if(check == 0)
+        {
+            printf("\x1b[31mbalance-braces..........failed\x1b[0m");
+            return;
+        }
+    }
+
+    else if(!strcmp(order, "balance-braces"))
+    {
+        if(!strcmp(strstr(file_name, ".txt"), ".txt") || !strcmp(strstr(file_name, ".c"), ".c") || !strcmp(strstr(file_name, ".cpp"), ".cpp") || !strcmp(strstr(file_name, ".mp4"), ".mp4") || !strcmp(strstr(file_name, ".mp3"), ".mp3") || !strcmp(strstr(file_name, ".wav"), ".wav"))
+        {
+            printf("\x1b[32mbalance-braces..........passed\x1b[0m");
+            return;
+        }
+        else
+        {
+            printf("\x1b[31mbalance-braces..........failed\x1b[0m");
+            return;
+        }
+    }
+}
 
 void full_diff(char *address1, char *address2)
 {
@@ -894,6 +1144,9 @@ void init_()
         fclose(ptr);
 
         ptr = fopen("tags.txt", "w");
+        fclose(ptr);
+
+        ptr = fopen("hooks.txt", "w");
         fclose(ptr);
 
         if(mkdir("branches"))
@@ -2092,6 +2345,11 @@ void branch_(int tedad, const char *voroodi[])
         fprintf(ptr, "%s", commit_ID);
         fclose(ptr);
         printf("%s branch has been made succesfully", voroodi[2]);
+        SetCurrentDirectory("..\\commits");
+        SetCurrentDirectory(commit_ID);
+        ptr = fopen("branch.txt", "a");
+        fprintf(ptr, "\n%s", voroodi[2]);
+        fclose(ptr);
     }
     else
     {
@@ -2479,6 +2737,113 @@ void diff_(int tedad, const char *voroodi[])
     }
 }
 
+// void revert_(int tedad, const char *voroodi[])
+// {
+//     if(!dir_existance())
+//     {
+//         printf("please first initialize tig repo\n");
+//         exit(EXIT_FAILURE);
+//     }
+//     reach_tig();
+//     int m_flag = 0, e_flag = 0;
+//     for (int i = 0; i < tedad; i++)
+//     {
+//         if(!strcmp(voroodi[i], "-m"))
+//         {
+//             m_flag = 1;
+//         }
+//     }
+// }
+
+void precommit_(int tedad, const char *voroodi[])
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+    reach_tig();
+
+    if(tedad == 2)
+    {
+        SetCurrentDirectory("staging");
+        struct dirent *entry;
+        DIR *dir = opendir(".");
+        while ((entry = readdir(dir)) != NULL)
+        {
+            if(!strcmp(entry -> d_name, ".") || !strcmp(entry -> d_name, "..") || entry -> d_type != DT_DIR)
+            {
+                continue;
+            }
+            SetCurrentDirectory(entry -> d_name);
+            FILE *ptr = fopen("..\\..\\hooks.txt", "r");
+            char line[50];
+            fgets(line, sizeof(line), ptr);
+            while (fgets(line, sizeof(line), ptr))
+            {
+                line[strlen(line) - 1] = '\0';
+                pre_commit_given_order(line);
+            }
+            fclose(ptr);
+            SetCurrentDirectory("..");
+        }
+        return;
+    }
+
+    if(!strcmp(voroodi[2], add))
+    {
+        FILE *ptr = fopen("hooks.txt", "a");
+        fprintf("\n%s", voroodi[4]);
+        fclose(ptr);
+        return;
+    }
+
+    else if(!strcmp(voroodi[2], "remove"))
+    {
+        FILE *ptr = fopen("hooks.txt", "r");
+        FILE *t = fopen("temp.txt", "w");
+        char line[50];
+        while (fgets(line, sizeof(line), ptr) != NULL)
+        {
+            line[strlen(line) - 1] = '\0';
+            if(strcmp(line, voroodi[4]))
+            {
+                fprintf(t, "\n%s", line);
+            }
+        }
+        fclose(ptr);
+        fclose(t);
+        remove("hooks.txt");
+        rename("temp.txt", "hooks.txt");
+        return;
+    }
+
+    else if (!strcmp(voroodi[2], "applied"))
+    {
+        FILE *ptr = fopen("hooks.txt", "r");
+        char line[50];
+        while (fgets(line, sizeof(line), ptr) != NULL)
+        {
+            printf("%s", line);
+        }
+        fclose(ptr);
+        return;
+    }
+    
+    else if(!strcmp(voroodi[2], "hooks"))
+    {
+        SetCurrentDirectory(basement);
+        FILE *ptr = fopen("hook-list.txt", "r");
+        char line[50];
+        fgets(line, sizeof(line), ptr);
+        while (fgets(line, sizeof(line), ptr) != NULL)
+        {
+            printf("%s", line);
+        }
+        return;
+    }
+}
+
 int main(int argc,const char **argv)
 {
     if(!strcmp(argv[1], init))
@@ -2585,6 +2950,16 @@ int main(int argc,const char **argv)
     {
         diff_(argc, argv);
         return 0;
+    }
+
+    else if(!strcmp(argv[1], precommit))
+    {
+        precommit_(argc, argv);
+        return 0;
+    }
+
+    else if(!strcmp(argv[1], merge))
+    {
     }
 
     printf("invalid command\n");
