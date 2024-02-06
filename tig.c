@@ -48,7 +48,7 @@ void reset_(int tedad, const char *voroodi[]);
 void status_();
 void add_to_staging_directory(const char *full_address, const char *file_name);
 void remove_from_staging_directory(const char *full_address);
-char* get_relative_path(const char* full_path, const char* base_path);
+// char* get_relative_path(const char* full_path, const char* base_path);
 void update_staged_file(const char* full_address);
 void undo_();
 void commit_(int tedad, const char *voroodi[]);
@@ -65,7 +65,7 @@ void checkout_with_ID(char *commit_ID);
 int does_folder_exist(const char *folder_path);
 void status_all();
 int check_uncommited_change();
-// void revert_(int tedad, const char *voroodi[]);
+void revert_(int tedad, const char *voroodi[]);
 void tag_(int tedad, const char *voroodi[]);
 void tag_sort_and_print();
 int compare_strings(const void *a, const void *b);
@@ -2737,23 +2737,88 @@ void diff_(int tedad, const char *voroodi[])
     }
 }
 
-// void revert_(int tedad, const char *voroodi[])
-// {
-//     if(!dir_existance())
-//     {
-//         printf("please first initialize tig repo\n");
-//         exit(EXIT_FAILURE);
-//     }
-//     reach_tig();
-//     int m_flag = 0, e_flag = 0;
-//     for (int i = 0; i < tedad; i++)
-//     {
-//         if(!strcmp(voroodi[i], "-m"))
-//         {
-//             m_flag = 1;
-//         }
-//     }
-// }
+void revert_(int tedad, const char *voroodi[])
+{
+    if(!dir_existance())
+    {
+        printf("please first initialize tig repo\n");
+        exit(EXIT_FAILURE);
+    }
+    reach_tig();
+    char new_message[80], commit_ID[10], garbage[500], date[500];
+    int last;
+    char date[100];
+    time_t current_time;
+    time(&current_time);
+    sprintf(date, "%s", ctime(&current_time));
+    for (int i = 0; i < tedad; i++)
+    {
+        if(!strcmp(voroodi[i], "-m"))
+        {
+            strcpy(new_message, voroodi[i + 1]);
+        }
+    }
+    strcpy(commit_ID, voroodi[tedad - 1]);
+    if(!strlen(new_message))
+    {
+        char *current_dir = _getcwd(NULL, MAX_PATH);
+        SetCurrentDirectory("commits");
+        SetCurrentDirectory(commit_ID);
+        FILE *ptr = fopen("commit massage.txt", "r");
+        fgets(new_message, sizeof(new_message), ptr);
+        fclose(ptr);
+    }
+    reach_tig();
+    checkout_with_ID(commit_ID);
+    reach_tig();
+    FILE *ptr = fopen("commit message.txt", "w");
+    fprintf(ptr, "%s", new_message);
+    fclose(ptr);
+    ptr = fopen("commit history.txt", "r");
+    fgets(garbage, sizeof(garbage), ptr);
+    fscanf(ptr, "%d\n", last);
+    last++;
+    fclose(ptr);
+    ptr = fopen("commit history.txt", "r");
+    char branch_name[100], files_commited[100], c_ID[10];
+    while (fgets(garbage, sizeof(garbage), ptr) != NULL)
+    {
+        fgets(c_ID, sizeof(c_ID), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        fgets(branch_name, sizeof(branch_name), ptr);
+        fgets(files_commited, sizeof(files_commited), ptr);
+        fgets(garbage, sizeof(garbage), ptr);
+        c_ID[strlen(c_ID) - 1] = '\0';
+        if(!strcmp(c_ID, commit_ID))
+        {
+            break;
+        }
+    }
+    fclose(ptr);
+    char confe[100], confn[100], data[500];
+    ptr = fopen("configmail.txt", "r");
+    fgets(confe, sizeof(confe), ptr);
+    fclose(ptr);
+
+    ptr = fopen("configname.txt", "r");
+    fgets(confn, sizeof(confn), ptr);
+    fclose(ptr);
+    
+    sprintf(data, "%s%d\n%s\n%s\n%s%s%s\n", date, last, confn, confe, branch_name, files_commited, new_message);
+    append_to_start("commit history.txt", data);
+    SetCurrentDirectory("commits");
+    char new_c_ID[10];
+    sprintf(new_c_ID, "%d", last);
+    mkdir(last);
+    char command[100];
+    sprintf(command, "xcopy /e \"%s\\%s\" \"%s\\%s\"", _getcwd(NULL, MAX_PATH), commit_ID, _getcwd(NULL, MAX_PATH), new_c_ID);
+    system(command);
+    SetCurrentDirectory(new_c_ID);
+    ptr = fopen("commit massage.txt", "w");
+    fprintf(ptr, "%s", new_message);
+    return;
+}
 
 void precommit_(int tedad, const char *voroodi[])
 {
@@ -2930,7 +2995,7 @@ int main(int argc,const char **argv)
     
     else if(!strcmp(argv[1], revert))
     {
-        // revert_(argc, argv);
+        revert_(argc, argv);
         return 0;
     }
 
@@ -2968,3 +3033,4 @@ int main(int argc,const char **argv)
 
 
 //i have to return and edit add_ a litle bit
+// i have to check if we are on the head when we want to commit or not
