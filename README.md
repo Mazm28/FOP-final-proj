@@ -1,3 +1,2 @@
 # FOP-final-proj
-Mohammad Ali Meschi
-402106491
+making a lighter version of git
